@@ -55,11 +55,11 @@ struct ScanRequest {
 };
 
 /// Utility functions to serialize and deserialize scan requests and result Arrow tables.
-arrow::Status SerializeScanRequest(ScanRequest req, ceph::bufferlist& bl);
-arrow::Status DeserializeScanRequest(ScanRequest& req, ceph::bufferlist bl);
+arrow::Status SerializeScanRequest(ScanRequest req, ceph::bufferlist* bl);
+arrow::Status DeserializeScanRequest(ScanRequest* req, ceph::bufferlist bl);
 arrow::Status SerializeTable(const std::shared_ptr<arrow::Table>& table,
-                             ceph::bufferlist& bl);
-arrow::Status DeserializeTable(arrow::RecordBatchVector& batches, ceph::bufferlist bl,
+                             ceph::bufferlist* bl);
+arrow::Status DeserializeTable(arrow::RecordBatchVector* batches, ceph::bufferlist bl,
                                bool use_threads);
 
 /// Utility function to invoke a RADOS object class function on an RADOS object.

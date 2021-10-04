@@ -25,6 +25,10 @@ set -e
 set -x
 set -u
 
+if [ "${ARROW_SKYHOOK:-OFF}" != "ON" ]; then
+  exit 0
+fi
+
 ARROW_BUILD_DIR=${1}/cpp
 DIR=/tmp/integration_skyhook
 

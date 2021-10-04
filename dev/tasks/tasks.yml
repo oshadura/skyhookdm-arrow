@@ -875,6 +875,15 @@ tasks:
       image: ubuntu-cpp
 {% endfor %}
 
+  test-skyhook-integration:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      flags: -e ARROW_SKYHOOK=ON
+      env:
+        UBUNTU: 20.04
+      image: ubuntu-cpp
+
   test-debian-11-cpp:
     ci: github
     template: docker-tests/github.linux.yml

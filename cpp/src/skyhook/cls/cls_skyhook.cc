@@ -24,7 +24,7 @@
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/result.h"
-#include "arrow/util/compression.h"
+#include "arrow/util/logging.h"
 
 #include "skyhook/protocol/skyhook_protocol.h"
 
@@ -47,7 +47,7 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
     chunks_ = std::vector<std::shared_ptr<ceph::bufferlist>>();
   }
 
-  ~RandomAccessObject() { Close(); }
+  ~RandomAccessObject() override { DCHECK_OK(Close()); }
 
   /// Check if the file stream is closed.
   arrow::Status CheckClosed() const {
@@ -151,9 +151,9 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
 /// scan.
 /// \return Table.
 arrow::Result<std::shared_ptr<arrow::Table>> DoScan(
-    cls_method_context_t hctx, skyhook::ScanRequest req,
-    std::shared_ptr<arrow::dataset::FileFormat> format,
-    std::shared_ptr<arrow::dataset::FragmentScanOptions> fragment_scan_options) {
+    cls_method_context_t hctx, const skyhook::ScanRequest& req,
+    const std::shared_ptr<arrow::dataset::FileFormat>& format,
+    const std::shared_ptr<arrow::dataset::FragmentScanOptions>& fragment_scan_options) {
   auto file = std::make_shared<RandomAccessObject>(hctx, req.file_size);
   arrow::dataset::FileSource source(file);
   ARROW_ASSIGN_OR_RAISE(
@@ -212,10 +212,10 @@ static int scan_op(cls_method_context_t hctx, ceph::bufferlist* in,
                    ceph::bufferlist* out) {
   // Components required to construct a File fragment.
   arrow::Status s;
-  skyhook::ScanRequest* req = new skyhook::ScanRequest();
+  skyhook::ScanRequest req;
 
   // Deserialize the scan request.
-  if (!(s = skyhook::DeserializeScanRequest(*in, req)).ok()) {
+  if (!(s = skyhook::DeserializeScanRequest(*in, &req)).ok()) {
     LogSkyhookError(s.message());
     return SCAN_REQ_DESER_ERR_CODE;
   }
@@ -223,9 +223,9 @@ static int scan_op(cls_method_context_t hctx, ceph::bufferlist* in,
   // Scan the object.
   std::shared_ptr<arrow::Table> table;
   arrow::Result<std::shared_ptr<arrow::Table>> maybe_table;
-  switch (req->file_format) {
+  switch (req.file_format) {
     case skyhook::SkyhookFileType::type::PARQUET:
-      maybe_table = ScanParquetObject(hctx, *req);
+      maybe_table = ScanParquetObject(hctx, std::move(req));
       if (!maybe_table.ok()) {
         LogSkyhookError("Could not scan parquet object: " +
                         maybe_table.status().ToString());
@@ -234,7 +234,7 @@ static int scan_op(cls_method_context_t hctx, ceph::bufferlist* in,
       table = *maybe_table;
       break;
     case skyhook::SkyhookFileType::type::IPC:
-      maybe_table = ScanIpcObject(hctx, *req);
+      maybe_table = ScanIpcObject(hctx, std::move(req));
       if (!maybe_table.ok()) {
         LogSkyhookError("Could not scan IPC object: " + maybe_table.status().ToString());
         return SCAN_ERR_CODE;
@@ -250,13 +250,13 @@ static int scan_op(cls_method_context_t hctx, ceph::bufferlist* in,
   }
 
   // Serialize the resultant table to send back to the client.
-  ceph::bufferlist* bl = new ceph::bufferlist();
-  if (!(s = skyhook::SerializeTable(table, bl)).ok()) {
+  ceph::bufferlist bl;
+  if (!(s = skyhook::SerializeTable(table, &bl)).ok()) {
     LogSkyhookError(s.message());
     return SCAN_RES_SER_ERR_CODE;
   }
 
-  *out = *bl;
+  *out = std::move(bl);
   return 0;
 }
 

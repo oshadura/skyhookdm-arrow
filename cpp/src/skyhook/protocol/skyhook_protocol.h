@@ -72,10 +72,10 @@ arrow::Status ExecuteObjectClassFn(const std::shared_ptr<rados::RadosConn>& conn
 /// and it's underlying object.
 class SkyhookDirectObjectAccess {
  public:
-  explicit SkyhookDirectObjectAccess(const std::shared_ptr<rados::RadosConn>& connection)
-      : connection_(connection) {}
+  explicit SkyhookDirectObjectAccess(std::shared_ptr<rados::RadosConn> connection)
+      : connection_(std::move(connection)) {}
 
-  ~SkyhookDirectObjectAccess() {}
+  ~SkyhookDirectObjectAccess() = default;
 
   /// Execute a POSIX stat on a file.
   arrow::Status Stat(const std::string& path, struct stat& st) {

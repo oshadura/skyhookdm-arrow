@@ -39,7 +39,7 @@ class SkyhookScanTask : public arrow::dataset::ScanTask {
         source_(std::move(source)),
         doa_(std::move(doa)),
         file_format_(file_format),
-        partition_expression_(partition_expression) {}
+        partition_expression_(std::move(partition_expression)) {}
 
   arrow::Result<arrow::RecordBatchIterator> Execute() override {
     /// Retrieve the size of the file using POSIX `stat`.
@@ -56,20 +56,20 @@ class SkyhookScanTask : public arrow::dataset::ScanTask {
     req.file_format = file_format_;
 
     /// Serialize the ScanRequest into a ceph bufferlist.
-    ceph::bufferlist* request = new ceph::bufferlist();
-    RETURN_NOT_OK(skyhook::SerializeScanRequest(req, request));
+    ceph::bufferlist request;
+    RETURN_NOT_OK(skyhook::SerializeScanRequest(req, &request));
 
     /// Execute the Ceph object class method `scan_op`.
     ceph::bufferlist result;
-    RETURN_NOT_OK(doa_->Exec(st.st_ino, "scan_op", *request, result));
+    RETURN_NOT_OK(doa_->Exec(st.st_ino, "scan_op", request, result));
 
     /// Read RecordBatches from the result bufferlist. Since, this step might use
     /// threads for decompressing compressed batches, to avoid running into
     /// [ARROW-12597], we switch off threaded decompression to avoid nested threading
     /// scenarios when scan tasks are executed in parallel by the CpuThreadPool.
-    arrow::RecordBatchVector* batches = new arrow::RecordBatchVector();
-    RETURN_NOT_OK(skyhook::DeserializeTable(result, !options_->use_threads, batches));
-    return arrow::MakeVectorIterator(*batches);
+    arrow::RecordBatchVector batches;
+    RETURN_NOT_OK(skyhook::DeserializeTable(result, !options_->use_threads, &batches));
+    return arrow::MakeVectorIterator(std::move(batches));
   }
 
  protected:
@@ -82,9 +82,9 @@ class SkyhookScanTask : public arrow::dataset::ScanTask {
 class SkyhookFileFormat::Impl {
  public:
   Impl(std::shared_ptr<RadosConnCtx> ctx, std::string file_format)
-      : ctx_(std::move(ctx)), file_format_(file_format) {}
+      : ctx_(std::move(ctx)), file_format_(std::move(file_format)) {}
 
-  ~Impl() {}
+  ~Impl() = default;
 
   arrow::Status Init() {
     /// Connect to the RADOS cluster and instantiate a `SkyhookDirectObjectAccess`
@@ -112,8 +112,7 @@ class SkyhookFileFormat::Impl {
     }
 
     arrow::dataset::ScanTaskVector v{std::make_shared<SkyhookScanTask>(
-        std::move(options), std::move(file), file->source(), doa_, file_format,
-        file->partition_expression())};
+        options, file, file->source(), doa_, file_format, file->partition_expression())};
     return arrow::MakeVectorIterator(v);
   }
 
@@ -141,7 +140,8 @@ class SkyhookFileFormat::Impl {
 
 arrow::Result<std::shared_ptr<SkyhookFileFormat>> SkyhookFileFormat::Make(
     std::shared_ptr<RadosConnCtx> ctx, std::string file_format) {
-  auto format = std::make_shared<SkyhookFileFormat>(std::move(ctx), file_format);
+  auto format =
+      std::make_shared<SkyhookFileFormat>(std::move(ctx), std::move(file_format));
   /// Establish connection to the Ceph cluster.
   RETURN_NOT_OK(format->Init());
   return format;
@@ -149,9 +149,9 @@ arrow::Result<std::shared_ptr<SkyhookFileFormat>> SkyhookFileFormat::Make(
 
 SkyhookFileFormat::SkyhookFileFormat(std::shared_ptr<RadosConnCtx> ctx,
                                      std::string file_format)
-    : impl_(new Impl(std::move(ctx), file_format)) {}
+    : impl_(new Impl(std::move(ctx), std::move(file_format))) {}
 
-SkyhookFileFormat::~SkyhookFileFormat() {}
+SkyhookFileFormat::~SkyhookFileFormat() = default;
 
 arrow::Status SkyhookFileFormat::Init() { return impl_->Init(); }
 
@@ -166,12 +166,14 @@ arrow::Result<arrow::dataset::ScanTaskIterator> SkyhookFileFormat::ScanFile(
   return impl_->ScanFile(options, file);
 }
 
-std::shared_ptr<arrow::dataset::FileWriteOptions> SkyhookFileFormat::DefaultWriteOptions() {
+std::shared_ptr<arrow::dataset::FileWriteOptions>
+SkyhookFileFormat::DefaultWriteOptions() {
   return nullptr;
 }
 
 arrow::Result<std::shared_ptr<arrow::dataset::FileWriter>> SkyhookFileFormat::MakeWriter(
-    std::shared_ptr<arrow::io::OutputStream> destination, std::shared_ptr<arrow::Schema> schema,
+    std::shared_ptr<arrow::io::OutputStream> destination,
+    std::shared_ptr<arrow::Schema> schema,
     std::shared_ptr<arrow::dataset::FileWriteOptions> options,
     arrow::fs::FileLocator destination_locator) const {
   return arrow::Status::NotImplemented("Skyhook writer not yet implemented.");

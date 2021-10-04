@@ -74,7 +74,8 @@ std::shared_ptr<arrow::dataset::Dataset> GetDatasetFromDirectory(
 
 std::shared_ptr<arrow::fs::FileSystem> GetFileSystemFromUri(const std::string& uri,
                                                             std::string* path) {
-  return arrow::fs::FileSystemFromUri(uri, path).ValueOrDie();
+  EXPECT_OK_AND_ASSIGN(auto fs, arrow::fs::FileSystemFromUri(uri, path));
+  return fs;
 }
 
 std::shared_ptr<arrow::dataset::Dataset> GetDatasetFromPath(

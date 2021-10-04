@@ -81,7 +81,7 @@ std::shared_ptr<arrow::dataset::Dataset> GetDatasetFromPath(
     std::shared_ptr<arrow::fs::FileSystem> fs,
     std::shared_ptr<arrow::dataset::FileFormat> format, std::string path) {
   EXPECT_OK_AND_ASSIGN(auto info, fs->GetFileInfo(path));
-  return GetDatasetFromDirectory(fs, format, path);
+  return GetDatasetFromDirectory(std::move(fs), std::move(format), std::move(path));
 }
 
 std::shared_ptr<arrow::dataset::Scanner> GetScannerFromDataset(

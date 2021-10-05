@@ -879,9 +879,9 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: -e ARROW_SKYHOOK=ON
       env:
         UBUNTU: 20.04
+      flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
   test-debian-11-cpp:

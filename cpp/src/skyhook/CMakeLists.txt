@@ -24,11 +24,8 @@ add_custom_target(cls_skyhook)
 
 # define the dependencies
 find_package(librados REQUIRED)
-include_directories(${LIBRADOS_INCLUDE_DIR})
-set(ARROW_SKYHOOK_LINK_STATIC arrow_dataset_static)
-set(ARROW_SKYHOOK_LINK_SHARED arrow_dataset_shared)
-set(ARROW_SKYHOOK_LINK_STATIC ${ARROW_SKYHOOK_LINK_STATIC} ${LIBRADOS_LIBRARY})
-set(ARROW_SKYHOOK_LINK_SHARED ${ARROW_SKYHOOK_LINK_SHARED} ${LIBRADOS_LIBRARY})
+set(ARROW_SKYHOOK_LINK_STATIC arrow_dataset_static librados::rados)
+set(ARROW_SKYHOOK_LINK_SHARED arrow_dataset_shared librados::rados)
 
 # define the client and cls sources
 set(ARROW_SKYHOOK_CLIENT_SOURCES client/file_skyhook.cc protocol/rados_protocol.cc

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-find_path(LIBRADOS_INCLUDE_DIR rados/librados.hpp)
+find_path(LIBRADOS_INCLUDE_DIR rados/librados.h)
 
 find_library(LIBRADOS_LIBRARY NAMES rados)
 
